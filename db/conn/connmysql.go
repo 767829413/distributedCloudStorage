@@ -7,7 +7,9 @@ import (
 	"os"
 )
 
-var db *sql.DB
+var (
+	db *sql.DB
+)
 
 func init() {
 	var (
@@ -25,4 +27,45 @@ func init() {
 
 func MysqlConn() *sql.DB {
 	return db
+}
+
+func Exec(query string, args ...interface{}) bool {
+	var (
+		err    error
+		stmt   *sql.Stmt
+		result sql.Result
+	)
+	txn, _ := db.Begin()
+	if stmt, err = txn.Prepare(query); err != nil {
+		log.Println(err.Error())
+		return false
+	}
+
+	defer stmt.Close()
+	if result, err = stmt.Exec(args...); err != nil {
+		log.Println(err.Error())
+		return false
+	}
+	if num, err := result.RowsAffected(); err != nil {
+		return false
+	} else {
+		if num <= 0 {
+			return false
+		}
+		_ = txn.Commit()
+		return true
+	}
+}
+
+func Get(query string, args ...interface{}) (row *sql.Row, err error) {
+	var (
+		stmt *sql.Stmt
+	)
+	if stmt, err = db.Prepare(query); err != nil {
+		log.Println(err.Error())
+		return
+	}
+	defer stmt.Close()
+	row = stmt.QueryRow(args...)
+	return
 }

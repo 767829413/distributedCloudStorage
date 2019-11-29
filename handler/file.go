@@ -1,7 +1,8 @@
 package handler
 
 import (
-	"distributedCloudStorage/meta"
+	"distributedCloudStorage/common"
+	"distributedCloudStorage/model"
 	"distributedCloudStorage/util"
 	"encoding/json"
 	"io"
@@ -16,7 +17,7 @@ import (
 //file upload
 func Upload(w http.ResponseWriter, r *http.Request) {
 	var (
-		fileMeta   *meta.Meta
+		fileMeta   *model.File
 		file       multipart.File
 		fileHeader *multipart.FileHeader
 		osFile     *os.File
@@ -31,11 +32,10 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer file.Close()
-		fileMeta = &meta.Meta{
-			FileName: fileHeader.Filename,
-			Location: "C:/Users/gogo/src/distributedCloudStorage/tmp/" + fileHeader.Filename,
-			UploadAt: time.Now().Format("2006-01-02 15:04:05"),
-		}
+		fileMeta := model.NewFile()
+		fileMeta.FileName = fileHeader.Filename
+		fileMeta.Location = common.FileStoreTmp + fileHeader.Filename
+		fileMeta.UploadAt = time.Now().Format("2006-01-02 15:04:05")
 
 		if osFile, err = os.Create(fileMeta.Location); err != nil {
 			log.Println("create file fail : ", err.Error())
@@ -48,14 +48,17 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		}
 		_, _ = osFile.Seek(0, 0)
 		fileMeta.FileSha1 = util.FileSha1(osFile)
-		fileMeta.AddInfoDb()
+		fileMeta.Add()
 		http.Redirect(w, r, "/file/upload/success", http.StatusFound)
 	case http.MethodGet: //返回上传html页面
-		if data, err = ioutil.ReadFile("./static/view/index.html"); err != nil {
+		if data, err = ioutil.ReadFile(common.StaticFileDir + "/view/index.html"); err != nil {
 			log.Println("reade static file err : ", err.Error())
-			_, _ = io.WriteString(w, "internel server error")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
-		_, _ = io.WriteString(w, string(data))
+		_, _ = w.Write(data)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
 
@@ -67,21 +70,21 @@ func UploadSuccess(w http.ResponseWriter, r *http.Request) {
 //get file meta info
 func GetMeta(w http.ResponseWriter, r *http.Request) {
 	var (
-		fileMeta *meta.Meta
+		fileMeta *model.File
 		data     []byte
 		err      error
 	)
 	_ = r.ParseForm()
 	filehash := r.FormValue("filehash")
 
-	fileMeta = &meta.Meta{}
-	if err = fileMeta.GetInfoDb(filehash); err != nil {
+	fileMeta = model.NewFile()
+	if err = fileMeta.Get(filehash); err != nil {
 		log.Println("get file meta err: ", err.Error())
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	if data, err = json.Marshal(fileMeta); err != nil {
-		log.Println("Marshal Meta fail : ", err.Error())
+		log.Println("Marshal File fail : ", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -91,15 +94,15 @@ func GetMeta(w http.ResponseWriter, r *http.Request) {
 //file download
 func DownLoad(w http.ResponseWriter, r *http.Request) {
 	var (
-		fileMeta *meta.Meta
+		fileMeta *model.File
 		file     *os.File
 		data     []byte
 		err      error
 	)
 	_ = r.ParseForm()
 	filehash := r.Form.Get("filehash")
-	fileMeta = &meta.Meta{}
-	if err = fileMeta.GetInfoDb(filehash); err != nil {
+	fileMeta = model.NewFile()
+	if err = fileMeta.Get(filehash); err != nil {
 		log.Println("get file meta err: ", err.Error())
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -123,7 +126,7 @@ func MetaUpdata(w http.ResponseWriter, r *http.Request) {
 	var (
 		data     []byte
 		err      error
-		fileMeta *meta.Meta
+		fileMeta *model.File
 	)
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -133,8 +136,8 @@ func MetaUpdata(w http.ResponseWriter, r *http.Request) {
 	opType := r.PostFormValue("op")
 	filehash := r.PostFormValue("filehash")
 	newFileName := r.PostFormValue("filename")
-	fileMeta = &meta.Meta{}
-	if err = fileMeta.GetInfoDb(filehash); err != nil {
+	fileMeta = model.NewFile()
+	if err = fileMeta.Get(filehash); err != nil {
 		log.Println("get file meta err: ", err.Error())
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -143,7 +146,7 @@ func MetaUpdata(w http.ResponseWriter, r *http.Request) {
 	switch opType {
 	case "0":
 		fileMeta.FileName = newFileName
-		if flag := fileMeta.UpdateInfoDb(); !flag {
+		if flag := fileMeta.Update(); !flag {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -152,7 +155,7 @@ func MetaUpdata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if data, err = json.Marshal(fileMeta); err != nil {
-		log.Println("Marshal Meta fail: ", err.Error())
+		log.Println("Marshal File fail: ", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -164,22 +167,22 @@ func MetaUpdata(w http.ResponseWriter, r *http.Request) {
 //delete file and file meta info
 func Delete(w http.ResponseWriter, r *http.Request) {
 	var (
-		fileMeta *meta.Meta
+		fileMeta *model.File
 		flag     bool
 		err      error
 	)
 	_ = r.ParseForm()
 	filehash := r.PostFormValue("filehash")
 	//hard delete
-	fileMeta = &meta.Meta{}
-	if err = fileMeta.GetInfoDb(filehash); err != nil {
+	fileMeta = model.NewFile()
+	if err = fileMeta.Get(filehash); err != nil {
 		log.Println("get file meta err: ", err.Error())
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	_ = os.Remove(fileMeta.Location)
 	//soft delete
-	if flag = fileMeta.DeleteInfoDb(filehash); !flag {
+	if flag = fileMeta.Delete(filehash); !flag {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
