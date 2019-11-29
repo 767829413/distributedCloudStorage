@@ -21,7 +21,8 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		fileHeader *multipart.FileHeader
 		osFile     *os.File
 		data       []byte
-		err        error
+
+		err error
 	)
 	switch r.Method {
 	case http.MethodPost: //接收文件流并存储到本地目录
@@ -47,9 +48,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		}
 		_, _ = osFile.Seek(0, 0)
 		fileMeta.FileSha1 = util.FileSha1(osFile)
-		fileMeta.UpdateInfo()
-		fileMeta.UpdateInfoDb()
-		log.Println("print filehash :", fileMeta.FileSha1)
+		fileMeta.AddInfoDb()
 		http.Redirect(w, r, "/file/upload/success", http.StatusFound)
 	case http.MethodGet: //返回上传html页面
 		if data, err = ioutil.ReadFile("./static/view/index.html"); err != nil {
@@ -74,7 +73,10 @@ func GetMeta(w http.ResponseWriter, r *http.Request) {
 	)
 	_ = r.ParseForm()
 	filehash := r.FormValue("filehash")
-	if fileMeta = meta.GetInfo(filehash); fileMeta == nil {
+
+	fileMeta = &meta.Meta{}
+	if err = fileMeta.GetInfoDb(filehash); err != nil {
+		log.Println("get file meta err: ", err.Error())
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -96,7 +98,9 @@ func DownLoad(w http.ResponseWriter, r *http.Request) {
 	)
 	_ = r.ParseForm()
 	filehash := r.Form.Get("filehash")
-	if fileMeta = meta.GetInfo(filehash); fileMeta == nil {
+	fileMeta = &meta.Meta{}
+	if err = fileMeta.GetInfoDb(filehash); err != nil {
+		log.Println("get file meta err: ", err.Error())
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -129,7 +133,9 @@ func MetaUpdata(w http.ResponseWriter, r *http.Request) {
 	opType := r.PostFormValue("op")
 	filehash := r.PostFormValue("filehash")
 	newFileName := r.PostFormValue("filename")
-	if fileMeta = meta.GetInfo(filehash); fileMeta == nil {
+	fileMeta = &meta.Meta{}
+	if err = fileMeta.GetInfoDb(filehash); err != nil {
+		log.Println("get file meta err: ", err.Error())
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -137,8 +143,10 @@ func MetaUpdata(w http.ResponseWriter, r *http.Request) {
 	switch opType {
 	case "0":
 		fileMeta.FileName = newFileName
-		fileMeta.UpdateInfo()
-		fileMeta.UpdateInfoDb()
+		if flag := fileMeta.UpdateInfoDb(); !flag {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	default:
 		w.WriteHeader(http.StatusForbidden)
 		return
@@ -157,16 +165,24 @@ func MetaUpdata(w http.ResponseWriter, r *http.Request) {
 func Delete(w http.ResponseWriter, r *http.Request) {
 	var (
 		fileMeta *meta.Meta
+		flag     bool
+		err      error
 	)
 	_ = r.ParseForm()
 	filehash := r.PostFormValue("filehash")
 	//hard delete
-	if fileMeta = meta.GetInfo(filehash); fileMeta == nil {
+	fileMeta = &meta.Meta{}
+	if err = fileMeta.GetInfoDb(filehash); err != nil {
+		log.Println("get file meta err: ", err.Error())
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	_ = os.Remove(fileMeta.Location)
 	//soft delete
-	meta.RemoveFileMeta(filehash)
+	if flag = fileMeta.DeleteInfoDb(filehash); !flag {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
+	return
 }

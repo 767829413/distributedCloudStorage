@@ -11,30 +11,44 @@ type Meta struct {
 	UploadAt string
 }
 
-var fileMetas map[string]*Meta
-
-func init() {
-	fileMetas = make(map[string]*Meta)
+// add meta info to db
+func (fileMeta *Meta) AddInfoDb() bool {
+	fileInfo := &db.FileMetaInfo{
+		FileSha1: fileMeta.FileSha1,
+		FileName: fileMeta.FileName,
+		FileAddr: fileMeta.Location,
+		FileSize: fileMeta.FileSize,
+	}
+	return fileInfo.OnFileUploadFinished()
 }
 
-//add *Meta
-func (fileMeta *Meta) UpdateInfo() {
-	fileMetas[fileMeta.FileSha1] = fileMeta
-
-}
-
-// meta info to db
+// update meta info to db
 func (fileMeta *Meta) UpdateInfoDb() bool {
-	return db.OnFileUploadFinished(fileMeta.FileSha1, fileMeta.FileName, fileMeta.FileSize, fileMeta.Location)
+	fileInfo := &db.FileMetaInfo{
+		FileSha1: fileMeta.FileSha1,
+		FileName: fileMeta.FileName,
+		FileAddr: fileMeta.Location,
+		FileSize: fileMeta.FileSize,
+	}
+	return fileInfo.UpdateFileMetaInfo()
 }
 
-//get *Meta
-func GetInfo(fileSha1 string) (fileMeta *Meta) {
-	fileMeta = fileMetas[fileSha1]
+//get meta info for db
+func (fileMeta *Meta) GetInfoDb(fileSha1 string) (err error) {
+	fileInfo := &db.FileMetaInfo{}
+	if err = fileInfo.GetFileMetaInfo(fileSha1); err != nil {
+		return
+	}
+	fileMeta.FileSize = fileInfo.FileSize
+	fileMeta.FileName = fileInfo.FileName
+	fileMeta.FileSha1 = fileInfo.FileSha1
+	fileMeta.Location = fileInfo.FileAddr
+	fileMeta.UploadAt = fileInfo.UpdateAt
 	return
 }
 
 //remove *Meta PS: Thread-safe operation, map is Non-thread safe
-func RemoveFileMeta(fileSha1 string) {
-	delete(fileMetas, fileSha1)
+func (fileMeta *Meta) DeleteInfoDb(fileSha1 string) bool {
+	fileInfo := &db.FileMetaInfo{}
+	return fileInfo.DeleteFileMetaInfo(fileSha1)
 }
