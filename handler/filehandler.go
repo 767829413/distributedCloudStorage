@@ -47,7 +47,8 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		}
 		_, _ = osFile.Seek(0, 0)
 		fileMeta.FileSha1 = util.FileSha1(osFile)
-		meta.UpdateFileMeta(fileMeta)
+		fileMeta.UpdateInfo()
+		fileMeta.UpdateInfoDb()
 		log.Println("print filehash :", fileMeta.FileSha1)
 		http.Redirect(w, r, "/file/upload/success", http.StatusFound)
 	case http.MethodGet: //返回上传html页面
@@ -67,12 +68,16 @@ func UploadSuccess(w http.ResponseWriter, r *http.Request) {
 //get file meta info
 func GetMeta(w http.ResponseWriter, r *http.Request) {
 	var (
-		data []byte
-		err  error
+		fileMeta *meta.Meta
+		data     []byte
+		err      error
 	)
 	_ = r.ParseForm()
 	filehash := r.FormValue("filehash")
-	fileMeta := meta.GetFileMeta(filehash)
+	if fileMeta = meta.GetInfo(filehash); fileMeta == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 	if data, err = json.Marshal(fileMeta); err != nil {
 		log.Println("Marshal Meta fail : ", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
@@ -84,13 +89,17 @@ func GetMeta(w http.ResponseWriter, r *http.Request) {
 //file download
 func DownLoad(w http.ResponseWriter, r *http.Request) {
 	var (
-		file *os.File
-		data []byte
-		err  error
+		fileMeta *meta.Meta
+		file     *os.File
+		data     []byte
+		err      error
 	)
 	_ = r.ParseForm()
 	filehash := r.Form.Get("filehash")
-	fileMeta := meta.GetFileMeta(filehash)
+	if fileMeta = meta.GetInfo(filehash); fileMeta == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 	if file, err = os.Open(fileMeta.Location); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 	}
@@ -108,8 +117,9 @@ func DownLoad(w http.ResponseWriter, r *http.Request) {
 //update file meta info
 func MetaUpdata(w http.ResponseWriter, r *http.Request) {
 	var (
-		data []byte
-		err  error
+		data     []byte
+		err      error
+		fileMeta *meta.Meta
 	)
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -119,12 +129,16 @@ func MetaUpdata(w http.ResponseWriter, r *http.Request) {
 	opType := r.PostFormValue("op")
 	filehash := r.PostFormValue("filehash")
 	newFileName := r.PostFormValue("filename")
-	fileMeta := meta.GetFileMeta(filehash)
+	if fileMeta = meta.GetInfo(filehash); fileMeta == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 
 	switch opType {
 	case "0":
 		fileMeta.FileName = newFileName
-		meta.UpdateFileMeta(fileMeta)
+		fileMeta.UpdateInfo()
+		fileMeta.UpdateInfoDb()
 	default:
 		w.WriteHeader(http.StatusForbidden)
 		return
@@ -134,17 +148,23 @@ func MetaUpdata(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(data)
 }
 
 //delete file and file meta info
 func Delete(w http.ResponseWriter, r *http.Request) {
+	var (
+		fileMeta *meta.Meta
+	)
 	_ = r.ParseForm()
 	filehash := r.PostFormValue("filehash")
 	//hard delete
-	fileMeta := meta.GetFileMeta(filehash)
+	if fileMeta = meta.GetInfo(filehash); fileMeta == nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 	_ = os.Remove(fileMeta.Location)
 	//soft delete
 	meta.RemoveFileMeta(filehash)

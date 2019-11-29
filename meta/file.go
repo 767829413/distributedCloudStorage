@@ -1,5 +1,7 @@
 package meta
 
+import "distributedCloudStorage/db"
+
 //File Meta information struct
 type Meta struct {
 	FileSha1 string
@@ -16,12 +18,18 @@ func init() {
 }
 
 //add *Meta
-func UpdateFileMeta(fileMeta *Meta) {
+func (fileMeta *Meta) UpdateInfo() {
 	fileMetas[fileMeta.FileSha1] = fileMeta
+
+}
+
+// meta info to db
+func (fileMeta *Meta) UpdateInfoDb() bool {
+	return db.OnFileUploadFinished(fileMeta.FileSha1, fileMeta.FileName, fileMeta.FileSize, fileMeta.Location)
 }
 
 //get *Meta
-func GetFileMeta(fileSha1 string) (fileMeta *Meta) {
+func GetInfo(fileSha1 string) (fileMeta *Meta) {
 	fileMeta = fileMetas[fileSha1]
 	return
 }
