@@ -19,4 +19,7 @@ const (
 
 	//用户密码salt
 	UserPwdSalt = "@#$%OKM"
+
+	//用户过期时间,单位秒
+	UserExpireTime = 3600
 )
