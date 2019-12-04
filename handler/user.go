@@ -4,7 +4,6 @@ import (
 	"distributedCloudStorage/common"
 	"distributedCloudStorage/model"
 	"distributedCloudStorage/util"
-	"github.com/dgrijalva/jwt-go"
 	"time"
 
 	//"distributedCloudStorage/common"
@@ -91,9 +90,35 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 
 //Get user information
 func Info(w http.ResponseWriter, r *http.Request) {
+	var (
+		tokenString string
+		err         error
+	)
 	_ = r.ParseForm()
-	token := r.Form.Get("token")
-	//name := r.Form.Get("username")
-	parser := &jwt.Parser{}
-	parser.ParseUnverified(token,jwt.MapClaims{})
+	//if tokenString, err = request.AuthorizationHeaderExtractor.ExtractToken(r); err != nil {
+	//	w.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
+	//tokenString = strings.Replace(tokenString, "Bearer ", "", -1)
+	name := r.Form.Get("username")
+	tokenString = r.Form.Get("token")
+	user := model.NewUser("", "")
+	if flag := user.CheckToken(name, tokenString); !flag {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	if err = user.GetUserInfo(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	resp := util.NewRespMsg(0, "SUCCESS", struct {
+		UserName string `json:"username"`
+		SignupAt string `json:"regtime"`
+	}{
+		UserName: user.UserName,
+		SignupAt: user.SignupAt,
+	})
+	//w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(resp.JSONBytes())
 }

@@ -19,8 +19,10 @@ func main() {
 	//user relation api
 	http.HandleFunc("/user/signup", handler.Signup)
 	http.HandleFunc("/user/signin", handler.SignIn)
+	http.HandleFunc("/user/info", handler.Info)
 
 	// static file
+	http.Handle("/", http.FileServer(http.Dir(common.StaticFileDir)))
 	http.Handle("/signin.html", http.FileServer(http.Dir(common.StaticFileDir+"/view")))
 	http.Handle("/home.html", http.FileServer(http.Dir(common.StaticFileDir+"/view")))
 
