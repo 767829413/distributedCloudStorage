@@ -2,6 +2,7 @@ package handler
 
 import (
 	"distributedCloudStorage/common"
+	"distributedCloudStorage/db/conn"
 	"distributedCloudStorage/model"
 	"distributedCloudStorage/util"
 	"time"
@@ -29,11 +30,14 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 		pwd = r.FormValue("password")
 		enPwd := util.Sha1([]byte(pwd + common.UserPwdSalt))
 		user := model.NewUser(name, enPwd)
-		if flag := user.Save(); !flag {
+		txn, _ := conn.GetDb().Begin()
+		if flag := user.Save(txn); !flag {
+			_ = txn.Rollback()
 			w.WriteHeader(http.StatusInternalServerError)
 			_, _ = w.Write([]byte("FAIL"))
 			return
 		}
+		_ = txn.Commit()
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("SUCCESS"))
 	case http.MethodGet:
@@ -72,7 +76,9 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	if flag := user.SaveToken(createAt); !flag {
+	txn, _ := conn.GetDb().Begin()
+	if flag := user.SaveToken(txn, createAt); !flag {
+		_ = txn.Rollback()
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -85,6 +91,7 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 		UserName: user.UserName,
 		Location: "http://" + r.Host + "/home.html",
 	})
+	_ = txn.Commit()
 	_, _ = w.Write(resp.JSONBytes())
 }
 
@@ -93,7 +100,6 @@ func Info(w http.ResponseWriter, r *http.Request) {
 	var (
 		err error
 	)
-	_ = r.ParseForm()
 	name := r.Form.Get("username")
 	user := model.NewUser(name, "")
 	if err = user.GetUserInfo(); err != nil {

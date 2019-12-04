@@ -1,6 +1,9 @@
 package model
 
-import "distributedCloudStorage/db"
+import (
+	"database/sql"
+	"distributedCloudStorage/db"
+)
 
 //File File information struct
 type File struct {
@@ -16,15 +19,15 @@ func NewFile() *File {
 }
 
 // add meta info to db
-func (fileMeta *File) Add() bool {
+func (fileMeta *File) Save(txn *sql.Tx) bool {
 	fileInfo := fileMeta.getDbFile()
-	return fileInfo.Save()
+	return fileInfo.Save(txn)
 }
 
 // update meta info to db
-func (fileMeta *File) Update() bool {
+func (fileMeta *File) Update(txn *sql.Tx) bool {
 	fileInfo := fileMeta.getDbFile()
-	return fileInfo.Update()
+	return fileInfo.Update(txn)
 }
 
 //get meta info for db
@@ -42,9 +45,9 @@ func (fileMeta *File) Get(fileSha1 string) (err error) {
 }
 
 //remove *File PS: Thread-safe operation, map is Non-thread safe
-func (fileMeta *File) Delete(fileSha1 string) bool {
+func (fileMeta *File) Delete(txn *sql.Tx, fileSha1 string) bool {
 	fileInfo := &db.File{}
-	return fileInfo.Delete(fileSha1)
+	return fileInfo.Delete(txn, fileSha1)
 }
 
 func (fileMeta *File) getDbFile() (fileInfo *db.File) {
@@ -54,4 +57,15 @@ func (fileMeta *File) getDbFile() (fileInfo *db.File) {
 	fileInfo.FileAddr = fileMeta.Location
 	fileInfo.FileSize = fileMeta.FileSize
 	return
+}
+
+//Save user file
+func (fileMeta *File) SaveUserFile(txn *sql.Tx, name string) bool {
+	userFile := db.NewUserFile()
+	userFile.UserName = name
+	userFile.FileSha1 = fileMeta.FileSha1
+	userFile.FileName = fileMeta.FileName
+	userFile.FileSize = fileMeta.FileSize
+	userFile.UploadAt = fileMeta.UploadAt
+	return userFile.Save(txn)
 }

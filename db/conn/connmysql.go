@@ -25,17 +25,16 @@ func init() {
 	}
 }
 
-func MysqlConn() *sql.DB {
+func GetDb() *sql.DB {
 	return db
 }
 
-func Exec(query string, args ...interface{}) bool {
+func Exec(txn *sql.Tx, query string, args ...interface{}) bool {
 	var (
 		err    error
 		stmt   *sql.Stmt
 		result sql.Result
 	)
-	txn, _ := db.Begin()
 	if stmt, err = txn.Prepare(query); err != nil {
 		log.Println(err.Error())
 		return false
@@ -47,12 +46,12 @@ func Exec(query string, args ...interface{}) bool {
 		return false
 	}
 	if num, err := result.RowsAffected(); err != nil {
+		log.Println(err.Error())
 		return false
 	} else {
 		if num <= 0 {
 			return false
 		}
-		_ = txn.Commit()
 		return true
 	}
 }
@@ -67,5 +66,21 @@ func Get(query string, args ...interface{}) (row *sql.Row, err error) {
 	}
 	defer stmt.Close()
 	row = stmt.QueryRow(args...)
+	return
+}
+
+func List(query string, args ...interface{}) (rows *sql.Rows, err error) {
+	var (
+		stmt *sql.Stmt
+	)
+	if stmt, err = db.Prepare(query); err != nil {
+		log.Println(err.Error())
+		return
+	}
+	defer stmt.Close()
+	if rows, err = stmt.Query(args...); err != nil {
+		log.Println(err)
+		return
+	}
 	return
 }

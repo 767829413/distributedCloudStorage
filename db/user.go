@@ -22,8 +22,8 @@ func NewUser() *User {
 }
 
 //user name and password to user registration
-func (user *User) Save() bool {
-	return conn.Exec("insert ignore into `"+userTable+"` (`user_name`,`user_pwd`) values (?,?)", user.UserName, user.UserPwd)
+func (user *User) Save(txn *sql.Tx) bool {
+	return conn.Exec(txn, "insert ignore into `"+userTable+"` (`user_name`,`user_pwd`) values (?,?)", user.UserName, user.UserPwd)
 }
 
 //查询

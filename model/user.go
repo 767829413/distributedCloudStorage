@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql"
 	"distributedCloudStorage/common"
 	"distributedCloudStorage/db"
 	"fmt"
@@ -27,11 +28,11 @@ func NewUser(name string, pwd string) *User {
 	}
 }
 
-func (user *User) Save() bool {
+func (user *User) Save(txn *sql.Tx) bool {
 	userDb := db.NewUser()
 	userDb.UserName = user.UserName
 	userDb.UserPwd = user.UserPwd
-	return userDb.Save()
+	return userDb.Save(txn)
 }
 
 func (user *User) Get() (err error) {
@@ -59,9 +60,9 @@ func (user *User) GenerateJwtToken(createAt int64) (err error) {
 }
 
 //Save user token
-func (user *User) SaveToken(createAt int64) bool {
+func (user *User) SaveToken(txn *sql.Tx, createAt int64) bool {
 	userToken := db.NewUserToken(user.UserName, user.Token, createAt)
-	return userToken.Save()
+	return userToken.Save(txn)
 }
 
 //Check token
@@ -101,4 +102,10 @@ func (user *User) GetUserInfo() (err error) {
 	user.Email = userDb.Email
 	user.SignupAt = userDb.SignupAt
 	return
+}
+
+func (user *User) GetUserFiles(page int, limit int) ([]*db.UserFile, error) {
+	userFile := db.NewUserFile()
+	userFile.UserName = user.UserName
+	return userFile.List(page, limit)
 }

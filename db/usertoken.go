@@ -23,8 +23,8 @@ func NewUserToken(name string, token string, createAt int64) *UserToke {
 }
 
 //user name and password to user registration
-func (userToken *UserToke) Save() bool {
-	return conn.Exec("replace into `"+userTokeTable+"` (`user_name`,`user_token`,`create_at`) values (?,?,?)", userToken.UserName, userToken.UserToken, userToken.CreateAt)
+func (userToken *UserToke) Save(txn *sql.Tx) bool {
+	return conn.Exec(txn, "replace into `"+userTokeTable+"` (`user_name`,`user_token`,`create_at`) values (?,?,?)", userToken.UserName, userToken.UserToken, userToken.CreateAt)
 }
 
 //Get user token

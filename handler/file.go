@@ -2,6 +2,8 @@ package handler
 
 import (
 	"distributedCloudStorage/common"
+	"distributedCloudStorage/db"
+	"distributedCloudStorage/db/conn"
 	"distributedCloudStorage/model"
 	"distributedCloudStorage/util"
 	"encoding/json"
@@ -11,6 +13,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -32,6 +35,8 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer file.Close()
+		name := r.Form.Get("username")
+
 		fileMeta = model.NewFile()
 		fileMeta.FileName = fileHeader.Filename
 		fileMeta.Location = common.FileStoreTmp + fileHeader.Filename
@@ -48,7 +53,13 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		}
 		_, _ = osFile.Seek(0, 0)
 		fileMeta.FileSha1 = util.FileSha1(osFile)
-		fileMeta.Add()
+		txn, _ := conn.GetDb().Begin()
+		flag := fileMeta.Save(txn)
+		flag = fileMeta.SaveUserFile(txn, name)
+		if !flag {
+			_ = txn.Rollback()
+		}
+		_ = txn.Commit()
 		http.Redirect(w, r, "/file/upload/success", http.StatusFound)
 	case http.MethodGet: //返回上传html页面
 		if data, err = ioutil.ReadFile(common.StaticFileDir + "/view/index.html"); err != nil {
@@ -88,6 +99,29 @@ func GetMeta(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(data)
+}
+
+//Get user file info
+func FileQuery(w http.ResponseWriter, r *http.Request) {
+	var (
+		userFiles []*db.UserFile
+		data      []byte
+		err       error
+	)
+	limit, _ := strconv.Atoi(r.Form.Get("limit"))
+	name := r.Form.Get("username")
+	user := model.NewUser(name, "")
+	if userFiles, err = user.GetUserFiles(0, limit); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if data, err = json.Marshal(userFiles); err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(data)
 }
 
@@ -146,10 +180,13 @@ func MetaUpdata(w http.ResponseWriter, r *http.Request) {
 	switch opType {
 	case "0":
 		fileMeta.FileName = newFileName
-		if flag := fileMeta.Update(); !flag {
+		txn, _ := conn.GetDb().Begin()
+		if flag := fileMeta.Update(txn); !flag {
+			_ = txn.Rollback()
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+		_ = txn.Commit()
 	default:
 		w.WriteHeader(http.StatusForbidden)
 		return
@@ -182,10 +219,13 @@ func Delete(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = os.Remove(fileMeta.Location)
 	//soft delete
-	if flag = fileMeta.Delete(filehash); !flag {
+	txn, _ := conn.GetDb().Begin()
+	if flag = fileMeta.Delete(txn, filehash); !flag {
+		_ = txn.Rollback()
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	_ = txn.Commit()
 	w.WriteHeader(http.StatusOK)
 	return
 }

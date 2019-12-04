@@ -24,8 +24,8 @@ func NewFile() *File {
 }
 
 //file meta info to database
-func (fileInfo *File) Save() bool {
-	return conn.Exec("insert ignore into `"+fileTable+"` (`file_sha1`,`file_name`,`file_size`,`file_addr`,`status`) values (?,?,?,?,?)", fileInfo.FileSha1, fileInfo.FileName, fileInfo.FileSize, fileInfo.FileAddr, common.FileStateAvailable)
+func (fileInfo *File) Save(txn *sql.Tx) bool {
+	return conn.Exec(txn, "insert ignore into `"+fileTable+"` (`file_sha1`,`file_name`,`file_size`,`file_addr`,`status`) values (?,?,?,?,?)", fileInfo.FileSha1, fileInfo.FileName, fileInfo.FileSize, fileInfo.FileAddr, common.FileStateAvailable)
 }
 
 func (fileInfo *File) Get(fileHash string) (err error) {
@@ -43,11 +43,11 @@ func (fileInfo *File) Get(fileHash string) (err error) {
 	return
 }
 
-func (fileInfo *File) Update() bool {
+func (fileInfo *File) Update(txn *sql.Tx) bool {
 
-	return conn.Exec("update `"+fileTable+"` set `file_name` = ?,`file_size` = ?,`file_addr` = ? where `file_sha1` = ? and status = ? limit 1", fileInfo.FileName, fileInfo.FileSize, fileInfo.FileAddr, fileInfo.FileSha1, common.FileStateAvailable)
+	return conn.Exec(txn, "update `"+fileTable+"` set `file_name` = ?,`file_size` = ?,`file_addr` = ? where `file_sha1` = ? and status = ? limit 1", fileInfo.FileName, fileInfo.FileSize, fileInfo.FileAddr, fileInfo.FileSha1, common.FileStateAvailable)
 }
 
-func (fileInfo *File) Delete(fileHash string) bool {
-	return conn.Exec("update `"+fileTable+"`  set status = ? where `file_sha1` = ? and status = ? limit 1", common.FileStateDeleted, fileHash, common.FileStateAvailable)
+func (fileInfo *File) Delete(txn *sql.Tx, fileHash string) bool {
+	return conn.Exec(txn, "update `"+fileTable+"`  set status = ? where `file_sha1` = ? and status = ? limit 1", common.FileStateDeleted, fileHash, common.FileStateAvailable)
 }

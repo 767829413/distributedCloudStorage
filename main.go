@@ -9,9 +9,10 @@ import (
 
 func main() {
 	//file relation api
-	http.HandleFunc("/file/upload", handler.Upload)
+	http.HandleFunc("/file/upload", handler.Token(handler.Upload))
 	http.HandleFunc("/file/upload/success", handler.UploadSuccess)
 	http.HandleFunc("/file/meta", handler.GetMeta)
+	http.HandleFunc("/file/query", handler.Token(handler.FileQuery))
 	http.HandleFunc("/file/download", handler.DownLoad)
 	http.HandleFunc("/file/update", handler.MetaUpdata)
 	http.HandleFunc("/file/delete", handler.Delete)
