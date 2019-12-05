@@ -50,6 +50,7 @@ func Exec(txn *sql.Tx, query string, args ...interface{}) bool {
 		return false
 	} else {
 		if num <= 0 {
+			log.Println(query)
 			return false
 		}
 		return true

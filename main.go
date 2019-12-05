@@ -11,11 +11,12 @@ func main() {
 	//file relation api
 	http.HandleFunc("/file/upload", handler.Token(handler.Upload))
 	http.HandleFunc("/file/upload/success", handler.UploadSuccess)
-	http.HandleFunc("/file/meta", handler.GetMeta)
+	http.HandleFunc("/file/meta", handler.Token(handler.GetMeta))
 	http.HandleFunc("/file/query", handler.Token(handler.FileQuery))
-	http.HandleFunc("/file/download", handler.DownLoad)
-	http.HandleFunc("/file/update", handler.MetaUpdata)
-	http.HandleFunc("/file/delete", handler.Delete)
+	http.HandleFunc("/file/download", handler.Token(handler.DownLoad))
+	http.HandleFunc("/file/update", handler.Token(handler.MetaUpdata))
+	http.HandleFunc("/file/delete", handler.Token(handler.Delete))
+	http.HandleFunc("/file/fastupload", handler.Token(handler.FastUpload))
 
 	//user relation api
 	http.HandleFunc("/user/signup", handler.Signup)

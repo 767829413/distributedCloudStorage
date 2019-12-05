@@ -73,6 +73,49 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+//Fast upload file
+func FastUpload(w http.ResponseWriter, r *http.Request) {
+	var (
+		err error
+	)
+	w.Header().Set("Content-Type", "application/json")
+	name := r.Form.Get("username")
+	filehash := r.Form.Get("filehash")
+	fileName := r.Form.Get("filename")
+	fileSize, err := strconv.Atoi(r.Form.Get("filesize"))
+	fileMeta := model.NewFile()
+	fileMeta.FileSha1 = filehash
+	fileMeta.FileName = fileName
+	fileMeta.FileSize = int64(fileSize)
+	if err = fileMeta.Get(filehash); err != nil {
+		resp := util.RespMsg{
+			Code: -1,
+			Msg:  "秒传失败,访问普通上传接口",
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write(resp.JSONBytes())
+		return
+	}
+	txn, _ := conn.GetDb().Begin()
+	if flag := fileMeta.SaveUserFile(txn, name); !flag {
+		_ = txn.Rollback()
+		resp := util.RespMsg{
+			Code: -2,
+			Msg:  "秒传失败",
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(resp.JSONBytes())
+		return
+	}
+	resp := util.RespMsg{
+		Code: 0,
+		Msg:  "秒传成功",
+	}
+	_ = txn.Commit()
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(resp.JSONBytes())
+}
+
 //file upload success
 func UploadSuccess(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.WriteString(w, "Upload File Success")
