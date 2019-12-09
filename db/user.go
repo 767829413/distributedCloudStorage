@@ -31,7 +31,7 @@ func (user *User) Get(name string, pwd string) (err error) {
 	var (
 		row *sql.Row
 	)
-	if row, err = conn.Get("select `user_name`,`user_pwd`,`email`,`phone`,`signup_at`,`status` from `"+userTable+"` where `user_name` = ? and `user_pwd` = ? limit 1", name, pwd); err != nil {
+	if row, _, err = conn.Get(conn.QueryGet, "select `user_name`,`user_pwd`,`email`,`phone`,`signup_at`,`status` from `"+userTable+"` where `user_name` = ? and `user_pwd` = ? limit 1", name, pwd); err != nil {
 		log.Println(err.Error())
 		return
 	}
@@ -47,7 +47,7 @@ func (user *User) GetInfo(name string) (err error) {
 	var (
 		row *sql.Row
 	)
-	if row, err = conn.Get("select `user_name`,`user_pwd`,`email`,`phone`,`signup_at`,`status` from `"+userTable+"` where `user_name` = ? limit 1", name); err != nil {
+	if row, _, err = conn.Get(conn.QueryGet, "select `user_name`,`user_pwd`,`email`,`phone`,`signup_at`,`status` from `"+userTable+"` where `user_name` = ? limit 1", name); err != nil {
 		log.Println(err.Error())
 		return
 	}

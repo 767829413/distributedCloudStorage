@@ -32,7 +32,7 @@ func (fileInfo *File) Get(fileHash string) (err error) {
 	var (
 		row *sql.Row
 	)
-	if row, err = conn.Get("select `file_sha1`,`file_name`,`file_size`,`file_addr`,`status`,`create_at`,`update_at` from `"+fileTable+"` where `file_sha1` = ? and status = ? limit 1", fileHash, common.FileStateAvailable); err != nil {
+	if row, _, err = conn.Get(conn.QueryGet, "select `file_sha1`,`file_name`,`file_size`,`file_addr`,`status`,`create_at`,`update_at` from `"+fileTable+"` where `file_sha1` = ? and status = ? limit 1", fileHash, common.FileStateAvailable); err != nil {
 		log.Println(err.Error())
 		return
 	}

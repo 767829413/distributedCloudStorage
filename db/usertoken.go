@@ -32,7 +32,7 @@ func (userToken *UserToke) Get() (err error) {
 	var (
 		row *sql.Row
 	)
-	if row, err = conn.Get("select `user_token`,`create_at` from `"+userTokeTable+"` where `user_name` = ? limit 1", userToken.UserName); err != nil {
+	if row, _, err = conn.Get(conn.QueryGet, "select `user_token`,`create_at` from `"+userTokeTable+"` where `user_name` = ? limit 1", userToken.UserName); err != nil {
 		log.Println(err.Error())
 		return
 	}

@@ -32,7 +32,7 @@ func (userFile *UserFile) Count() (num int, err error) {
 	var (
 		row *sql.Row
 	)
-	if row, err = conn.Get("select count(1) as num from `"+userTable+"` where `user_name` = ?", userFile.UserName); err != nil {
+	if row, _, err = conn.Get(conn.QueryGet, "select count(1) as num from `"+userTable+"` where `user_name` = ?", userFile.UserName); err != nil {
 		log.Println(err.Error())
 		return
 	}
@@ -48,7 +48,7 @@ func (userFile *UserFile) List(page int, limit int) (userList []*UserFile, err e
 	var (
 		rows *sql.Rows
 	)
-	if rows, err = conn.List("select `file_sha1`,`file_name`,`file_size`,`upload_at`,`last_update` from `"+userFileTable+"` where `user_name` = ? limit ?,?", userFile.UserName, page, limit); err != nil {
+	if _, rows, err = conn.Get(conn.QueryList, "select `file_sha1`,`file_name`,`file_size`,`upload_at`,`last_update` from `"+userFileTable+"` where `user_name` = ? limit ?,?", userFile.UserName, page, limit); err != nil {
 		log.Println(err.Error())
 		return
 	}

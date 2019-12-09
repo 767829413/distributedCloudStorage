@@ -2,6 +2,7 @@ package conn
 
 import (
 	"database/sql"
+	"errors"
 	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"os"
@@ -9,6 +10,11 @@ import (
 
 var (
 	db *sql.DB
+)
+
+const (
+	QueryGet  = 1
+	QueryList = 2
 )
 
 func init() {
@@ -57,7 +63,7 @@ func Exec(txn *sql.Tx, query string, args ...interface{}) bool {
 	}
 }
 
-func Get(query string, args ...interface{}) (row *sql.Row, err error) {
+func Get(queryType int, query string, args ...interface{}) (row *sql.Row, rows *sql.Rows, err error) {
 	var (
 		stmt *sql.Stmt
 	)
@@ -66,22 +72,18 @@ func Get(query string, args ...interface{}) (row *sql.Row, err error) {
 		return
 	}
 	defer stmt.Close()
-	row = stmt.QueryRow(args...)
-	return
-}
-
-func List(query string, args ...interface{}) (rows *sql.Rows, err error) {
-	var (
-		stmt *sql.Stmt
-	)
-	if stmt, err = db.Prepare(query); err != nil {
-		log.Println(err.Error())
+	switch queryType {
+	case QueryGet:
+		row = stmt.QueryRow(args...)
+		return
+	case QueryList:
+		if rows, err = stmt.Query(args...); err != nil {
+			log.Println(err)
+			return
+		}
+		return
+	default:
+		err = errors.New("choose the right query type")
 		return
 	}
-	defer stmt.Close()
-	if rows, err = stmt.Query(args...); err != nil {
-		log.Println(err)
-		return
-	}
-	return
 }
