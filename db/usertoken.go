@@ -33,11 +33,11 @@ func (userToken *UserToke) Get() (err error) {
 		row *sql.Row
 	)
 	if row, _, err = conn.Get(conn.QueryGet, "select `user_token`,`create_at` from `"+userTokeTable+"` where `user_name` = ? limit 1", userToken.UserName); err != nil {
-		log.Println(err.Error())
+		log.Println(userTokeTable, " ", err.Error())
 		return
 	}
 	if err = row.Scan(&userToken.UserToken, &userToken.CreateAt); err != nil {
-		log.Println(err.Error())
+		log.Println(userTokeTable, " ", err.Error())
 		return
 	}
 	return

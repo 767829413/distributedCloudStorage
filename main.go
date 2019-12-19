@@ -3,32 +3,32 @@ package main
 import (
 	"distributedCloudStorage/common"
 	"distributedCloudStorage/handler"
-	"log"
-	"net/http"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	//file relation api
-	http.HandleFunc("/file/upload", handler.Token(handler.Upload))
-	http.HandleFunc("/file/upload/success", handler.UploadSuccess)
-	http.HandleFunc("/file/meta", handler.Token(handler.GetMeta))
-	http.HandleFunc("/file/query", handler.Token(handler.FileQuery))
-	http.HandleFunc("/file/download", handler.Token(handler.DownLoad))
-	http.HandleFunc("/file/update", handler.Token(handler.MetaUpdata))
-	http.HandleFunc("/file/delete", handler.Token(handler.Delete))
-	http.HandleFunc("/file/fastupload", handler.Token(handler.FastUpload))
-
-	//user relation api
-	http.HandleFunc("/user/signup", handler.Signup)
-	http.HandleFunc("/user/signin", handler.SignIn)
-	http.HandleFunc("/user/info", handler.Token(handler.Info))
-
+	//gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+	r.Use(gin.Logger())
 	// static file
-	http.Handle("/", http.FileServer(http.Dir(common.StaticFileDir)))
-	http.Handle("/signin.html", http.FileServer(http.Dir(common.StaticFileDir+"/view")))
-	http.Handle("/home.html", http.FileServer(http.Dir(common.StaticFileDir+"/view")))
+	//r.StaticFile("/signin.html", common.StaticFileDir+"/view/signin.html")
+	//r.StaticFile("/home.html", common.StaticFileDir+"/view/home.html")
+	r.Static("/static", common.StaticFileDir)
 
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Println("start server fail: ", err.Error())
+	r.Any("/file/upload/success", handler.UploadSuccess)
+	r.Any("/user/signup", handler.Signup)
+	r.Any("/user/signin", handler.SignIn)
+	token := r.Group("/")
+	token.Use(handler.Token)
+	{
+		token.Any("/file/upload", handler.Upload)
+		token.POST("/file/meta", handler.GetMeta)
+		token.POST("/file/query", handler.FileQuery)
+		token.POST("/file/download", handler.DownLoad)
+		token.POST("/file/update", handler.MetaUpdata)
+		token.POST("/file/delete", handler.Delete)
+		token.POST("/file/fastupload", handler.FastUpload)
+		token.POST("/user/info", handler.Info)
 	}
+	_ = r.Run(":8080")
 }

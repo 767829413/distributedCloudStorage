@@ -33,11 +33,11 @@ func (fileInfo *File) Get(fileHash string) (err error) {
 		row *sql.Row
 	)
 	if row, _, err = conn.Get(conn.QueryGet, "select `file_sha1`,`file_name`,`file_size`,`file_addr`,`status`,`create_at`,`update_at` from `"+fileTable+"` where `file_sha1` = ? and status = ? limit 1", fileHash, common.FileStateAvailable); err != nil {
-		log.Println(err.Error())
+		log.Println(fileTable, " ", err.Error())
 		return
 	}
 	if err = row.Scan(&fileInfo.FileSha1, &fileInfo.FileName, &fileInfo.FileSize, &fileInfo.FileAddr, &fileInfo.Status, &fileInfo.CreateAt, &fileInfo.UpdateAt); err != nil {
-		log.Println(err.Error())
+		log.Println(fileTable, " ", err.Error())
 		return
 	}
 	return

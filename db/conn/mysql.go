@@ -2,6 +2,7 @@ package conn
 
 import (
 	"database/sql"
+	. "distributedCloudStorage/common"
 	"errors"
 	_ "github.com/go-sql-driver/mysql"
 	"log"
@@ -21,10 +22,11 @@ func init() {
 	var (
 		err error
 	)
-	if db, err = sql.Open("mysql", "root:123456@tcp(127.0.0.1:3339)/file_server?charset=utf8mb4"); err != nil {
+	connStr := DbUser + ":" + DbPwd + "@tcp(" + DbHost + ":" + DbPort + ")/" + DbName + "?charset=" + DbCharset
+	if db, err = sql.Open("mysql", connStr); err != nil {
 		log.Println("connect mysql fail: ", err.Error())
 	}
-	db.SetMaxOpenConns(1000)
+	db.SetMaxOpenConns(DbMaxOpenConns)
 	if err = db.Ping(); err != nil {
 		log.Println("ping mysql fail: ", err.Error())
 		os.Exit(1)
@@ -42,13 +44,13 @@ func Exec(txn *sql.Tx, query string, args ...interface{}) bool {
 		result sql.Result
 	)
 	if stmt, err = txn.Prepare(query); err != nil {
-		log.Println(err.Error())
+		log.Println(query, " ", err.Error())
 		return false
 	}
 
 	defer stmt.Close()
 	if result, err = stmt.Exec(args...); err != nil {
-		log.Println(err.Error())
+		log.Println(query, " ", err.Error())
 		return false
 	}
 	if num, err := result.RowsAffected(); err != nil {
@@ -56,7 +58,7 @@ func Exec(txn *sql.Tx, query string, args ...interface{}) bool {
 		return false
 	} else {
 		if num <= 0 {
-			log.Println(query)
+			log.Println(query, " ", err.Error())
 			return false
 		}
 		return true
@@ -68,7 +70,7 @@ func Get(queryType int, query string, args ...interface{}) (row *sql.Row, rows *
 		stmt *sql.Stmt
 	)
 	if stmt, err = db.Prepare(query); err != nil {
-		log.Println(err.Error())
+		log.Println(query, " ", err.Error())
 		return
 	}
 	defer stmt.Close()
@@ -78,7 +80,7 @@ func Get(queryType int, query string, args ...interface{}) (row *sql.Row, rows *
 		return
 	case QueryList:
 		if rows, err = stmt.Query(args...); err != nil {
-			log.Println(err)
+			log.Println(query, " ", err.Error())
 			return
 		}
 		return

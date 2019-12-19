@@ -5,6 +5,7 @@ import (
 	"distributedCloudStorage/db/conn"
 	"distributedCloudStorage/model"
 	"distributedCloudStorage/util"
+	"github.com/gin-gonic/gin"
 	"time"
 
 	//"distributedCloudStorage/common"
@@ -16,70 +17,70 @@ import (
 )
 
 // User registration
-func Signup(w http.ResponseWriter, r *http.Request) {
+func Signup(c *gin.Context) {
 	var (
 		data []byte
 		name string
 		pwd  string
 		err  error
 	)
-	switch r.Method {
+	switch c.Request.Method {
 	case http.MethodPost:
-		_ = r.ParseForm()
-		name = r.FormValue("username")
-		pwd = r.FormValue("password")
+		_ = c.Request.ParseForm()
+		name = c.Request.FormValue("username")
+		pwd = c.Request.FormValue("password")
 		enPwd := util.Sha1([]byte(pwd + common.UserPwdSalt))
 		user := model.NewUser(name, enPwd)
 		txn, _ := conn.GetDb().Begin()
 		if flag := user.Save(txn); !flag {
 			_ = txn.Rollback()
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte("FAIL"))
+			c.Writer.WriteHeader(http.StatusInternalServerError)
+			_, _ = c.Writer.Write([]byte("FAIL"))
 			return
 		}
 		_ = txn.Commit()
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("SUCCESS"))
+		c.Writer.WriteHeader(http.StatusOK)
+		_, _ = c.Writer.Write([]byte("SUCCESS"))
 	case http.MethodGet:
 		if data, err = ioutil.ReadFile(common.StaticFileDir + "/view/signup.html"); err != nil {
 			log.Println("reade static file err : ", err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
+			c.Writer.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(data)
+		c.Writer.WriteHeader(http.StatusOK)
+		_, _ = c.Writer.Write(data)
 	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		c.Writer.WriteHeader(http.StatusMethodNotAllowed)
 	}
 	return
 }
 
 // User login api
-func SignIn(w http.ResponseWriter, r *http.Request) {
+func SignIn(c *gin.Context) {
 	var (
 		//data []byte
 		name string
 		pwd  string
 		err  error
 	)
-	_ = r.ParseForm()
-	name = r.FormValue("username")
-	pwd = r.FormValue("password")
+	_ = c.Request.ParseForm()
+	name = c.Request.FormValue("username")
+	pwd = c.Request.FormValue("password")
 	enPwd := util.Sha1([]byte(pwd + common.UserPwdSalt))
 	user := model.NewUser(name, enPwd)
 	if err = user.Get(); err != nil {
-		w.WriteHeader(http.StatusNotFound)
+		c.Writer.WriteHeader(http.StatusNotFound)
 		return
 	}
 	createAt := time.Now().Unix()
 	if err = user.GenerateJwtToken(createAt); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		c.Writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	txn, _ := conn.GetDb().Begin()
 	if flag := user.SaveToken(txn, createAt); !flag {
 		_ = txn.Rollback()
-		w.WriteHeader(http.StatusInternalServerError)
+		c.Writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	resp := util.NewRespMsg(0, "SUCCESS", struct {
@@ -89,21 +90,21 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 	}{
 		Token:    user.Token,
 		UserName: user.UserName,
-		Location: "http://" + r.Host + "/home.html",
+		Location: "http://" + c.Request.Host + "/static/view/home.html",
 	})
 	_ = txn.Commit()
-	_, _ = w.Write(resp.JSONBytes())
+	_, _ = c.Writer.Write(resp.JSONBytes())
 }
 
 //Get user information
-func Info(w http.ResponseWriter, r *http.Request) {
+func Info(c *gin.Context) {
 	var (
 		err error
 	)
-	name := r.Form.Get("username")
+	name := c.Request.Form.Get("username")
 	user := model.NewUser(name, "")
 	if err = user.GetUserInfo(); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		c.Writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	resp := util.NewRespMsg(0, "SUCCESS", struct {
@@ -114,6 +115,6 @@ func Info(w http.ResponseWriter, r *http.Request) {
 		SignupAt: user.SignupAt,
 	})
 	//w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(resp.JSONBytes())
+	c.Writer.WriteHeader(http.StatusOK)
+	_, _ = c.Writer.Write(resp.JSONBytes())
 }

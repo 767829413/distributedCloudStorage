@@ -48,11 +48,11 @@ func (user *User) GetInfo(name string) (err error) {
 		row *sql.Row
 	)
 	if row, _, err = conn.Get(conn.QueryGet, "select `user_name`,`user_pwd`,`email`,`phone`,`signup_at`,`status` from `"+userTable+"` where `user_name` = ? limit 1", name); err != nil {
-		log.Println(err.Error())
+		log.Println(userTable, " ", err.Error())
 		return
 	}
 	if err = row.Scan(&user.UserName, &user.UserPwd, &user.Email, &user.Phone, &user.SignupAt, &user.Status); err != nil {
-		log.Println(err.Error())
+		log.Println(userTable, " ", err.Error())
 		return
 	}
 	return

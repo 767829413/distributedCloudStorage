@@ -49,13 +49,13 @@ func (userFile *UserFile) List(page int, limit int) (userList []*UserFile, err e
 		rows *sql.Rows
 	)
 	if _, rows, err = conn.Get(conn.QueryList, "select `file_sha1`,`file_name`,`file_size`,`upload_at`,`last_update` from `"+userFileTable+"` where `user_name` = ? limit ?,?", userFile.UserName, page, limit); err != nil {
-		log.Println(err.Error())
+		log.Println(userFileTable, " ", err.Error())
 		return
 	}
 	for rows.Next() {
 		userFileItem := NewUserFile()
 		if err = rows.Scan(&userFileItem.FileSha1, &userFileItem.FileName, &userFileItem.FileSize, &userFileItem.UploadAt, &userFileItem.LastUpdate); err != nil {
-			log.Println(userFile.UserName, err.Error())
+			log.Println(userFileTable, " ", err.Error())
 			return
 		}
 		userList = append(userList, userFileItem)

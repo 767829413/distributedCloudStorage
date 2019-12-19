@@ -7,6 +7,7 @@ import (
 	"distributedCloudStorage/model"
 	"distributedCloudStorage/util"
 	"encoding/json"
+	"github.com/gin-gonic/gin"
 	"io"
 	"io/ioutil"
 	"log"
@@ -18,7 +19,7 @@ import (
 )
 
 //file upload
-func Upload(w http.ResponseWriter, r *http.Request) {
+func Upload(c *gin.Context) {
 	var (
 		fileMeta   *model.File
 		file       multipart.File
@@ -28,14 +29,14 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 
 		err error
 	)
-	switch r.Method {
+	switch c.Request.Method {
 	case http.MethodPost: //接收文件流并存储到本地目录
-		if file, fileHeader, err = r.FormFile("file"); err != nil {
+		if file, fileHeader, err = c.Request.FormFile("file"); err != nil {
 			log.Println("get file fail : ", err.Error())
 			return
 		}
 		defer file.Close()
-		name := r.Form.Get("username")
+		name := c.Request.Form.Get("username")
 
 		fileMeta = model.NewFile()
 		fileMeta.FileName = fileHeader.Filename
@@ -60,29 +61,30 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 			_ = txn.Rollback()
 		}
 		_ = txn.Commit()
-		http.Redirect(w, r, "/file/upload/success", http.StatusFound)
+		http.Redirect(c.Writer, c.Request, "/file/upload/success", http.StatusFound)
 	case http.MethodGet: //返回上传html页面
 		if data, err = ioutil.ReadFile(common.StaticFileDir + "/view/index.html"); err != nil {
 			log.Println("reade static file err : ", err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
+			c.Writer.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		_, _ = w.Write(data)
+		_, _ = c.Writer.Write(data)
 	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		c.Writer.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
 
 //Fast upload file
-func FastUpload(w http.ResponseWriter, r *http.Request) {
+func FastUpload(c *gin.Context) {
 	var (
 		err error
 	)
-	w.Header().Set("Content-Type", "application/json")
-	name := r.Form.Get("username")
-	filehash := r.Form.Get("filehash")
-	fileName := r.Form.Get("filename")
-	fileSize, err := strconv.Atoi(r.Form.Get("filesize"))
+
+	c.Writer.Header().Set("Content-Type", "application/json")
+	name := c.Request.Form.Get("username")
+	filehash := c.Request.Form.Get("filehash")
+	fileName := c.Request.Form.Get("filename")
+	fileSize, err := strconv.Atoi(c.Request.Form.Get("filesize"))
 	fileMeta := model.NewFile()
 	fileMeta.FileSha1 = filehash
 	fileMeta.FileName = fileName
@@ -92,8 +94,8 @@ func FastUpload(w http.ResponseWriter, r *http.Request) {
 			Code: -1,
 			Msg:  "秒传失败,访问普通上传接口",
 		}
-		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write(resp.JSONBytes())
+		c.Writer.WriteHeader(http.StatusNotFound)
+		_, _ = c.Writer.Write(resp.JSONBytes())
 		return
 	}
 	txn, _ := conn.GetDb().Begin()
@@ -103,8 +105,8 @@ func FastUpload(w http.ResponseWriter, r *http.Request) {
 			Code: -2,
 			Msg:  "秒传失败",
 		}
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(resp.JSONBytes())
+		c.Writer.WriteHeader(http.StatusOK)
+		_, _ = c.Writer.Write(resp.JSONBytes())
 		return
 	}
 	resp := util.RespMsg{
@@ -112,111 +114,111 @@ func FastUpload(w http.ResponseWriter, r *http.Request) {
 		Msg:  "秒传成功",
 	}
 	_ = txn.Commit()
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(resp.JSONBytes())
+	c.Writer.WriteHeader(http.StatusOK)
+	_, _ = c.Writer.Write(resp.JSONBytes())
 }
 
 //file upload success
-func UploadSuccess(w http.ResponseWriter, r *http.Request) {
-	_, _ = io.WriteString(w, "Upload File Success")
+func UploadSuccess(c *gin.Context) {
+	_, _ = io.WriteString(c.Writer, "Upload File Success")
 }
 
 //get file meta info
-func GetMeta(w http.ResponseWriter, r *http.Request) {
+func GetMeta(c *gin.Context) {
 	var (
 		fileMeta *model.File
 		data     []byte
 		err      error
 	)
-	_ = r.ParseForm()
-	filehash := r.FormValue("filehash")
+	_ = c.Request.ParseForm()
+	filehash := c.Request.FormValue("filehash")
 
 	fileMeta = model.NewFile()
 	if err = fileMeta.Get(filehash); err != nil {
 		log.Println("get file meta err: ", err.Error())
-		w.WriteHeader(http.StatusNotFound)
+		c.Writer.WriteHeader(http.StatusNotFound)
 		return
 	}
 	if data, err = json.Marshal(fileMeta); err != nil {
 		log.Println("Marshal File fail : ", err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
+		c.Writer.WriteHeader(http.StatusInternalServerError)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(data)
+	c.Writer.Header().Set("Content-Type", "application/json")
+	_, _ = c.Writer.Write(data)
 }
 
 //Get user file info
-func FileQuery(w http.ResponseWriter, r *http.Request) {
+func FileQuery(c *gin.Context) {
 	var (
 		userFiles []*db.UserFile
 		data      []byte
 		err       error
 	)
-	limit, _ := strconv.Atoi(r.Form.Get("limit"))
-	name := r.Form.Get("username")
+	limit, _ := strconv.Atoi(c.Request.Form.Get("limit"))
+	name := c.Request.Form.Get("username")
 	user := model.NewUser(name, "")
 	if userFiles, err = user.GetUserFiles(0, limit); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		c.Writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	if data, err = json.Marshal(userFiles); err != nil {
 		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
+		c.Writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(data)
+	c.Writer.WriteHeader(http.StatusOK)
+	_, _ = c.Writer.Write(data)
 }
 
 //file download
-func DownLoad(w http.ResponseWriter, r *http.Request) {
+func DownLoad(c *gin.Context) {
 	var (
 		fileMeta *model.File
 		file     *os.File
 		data     []byte
 		err      error
 	)
-	_ = r.ParseForm()
-	filehash := r.Form.Get("filehash")
+	_ = c.Request.ParseForm()
+	filehash := c.Request.Form.Get("filehash")
 	fileMeta = model.NewFile()
 	if err = fileMeta.Get(filehash); err != nil {
 		log.Println("get file meta err: ", err.Error())
-		w.WriteHeader(http.StatusNotFound)
+		c.Writer.WriteHeader(http.StatusNotFound)
 		return
 	}
 	if file, err = os.Open(fileMeta.Location); err != nil {
-		w.WriteHeader(http.StatusNotFound)
+		c.Writer.WriteHeader(http.StatusNotFound)
 	}
 	defer file.Close()
 
 	if data, err = ioutil.ReadAll(file); err != nil {
 		log.Println("read file fail :", err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
+		c.Writer.WriteHeader(http.StatusInternalServerError)
 	}
-	w.Header().Set("Content-Type", "application/octect-stream")
-	w.Header().Set("Content-disposition", "attachment;filename=\""+fileMeta.FileName+"\"")
-	_, _ = w.Write(data)
+	c.Writer.Header().Set("Content-Type", "application/octect-stream")
+	c.Writer.Header().Set("Content-disposition", "attachment;filename=\""+fileMeta.FileName+"\"")
+	_, _ = c.Writer.Write(data)
 }
 
 //update file meta info
-func MetaUpdata(w http.ResponseWriter, r *http.Request) {
+func MetaUpdata(c *gin.Context) {
 	var (
 		data     []byte
 		err      error
 		fileMeta *model.File
 	)
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	if c.Request.Method != http.MethodPost {
+		c.Writer.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	_ = r.ParseForm()
-	opType := r.PostFormValue("op")
-	filehash := r.PostFormValue("filehash")
-	newFileName := r.PostFormValue("filename")
+	_ = c.Request.ParseForm()
+	opType := c.Request.PostFormValue("op")
+	filehash := c.Request.PostFormValue("filehash")
+	newFileName := c.Request.PostFormValue("filename")
 	fileMeta = model.NewFile()
 	if err = fileMeta.Get(filehash); err != nil {
 		log.Println("get file meta err: ", err.Error())
-		w.WriteHeader(http.StatusNotFound)
+		c.Writer.WriteHeader(http.StatusNotFound)
 		return
 	}
 
@@ -226,38 +228,38 @@ func MetaUpdata(w http.ResponseWriter, r *http.Request) {
 		txn, _ := conn.GetDb().Begin()
 		if flag := fileMeta.Update(txn); !flag {
 			_ = txn.Rollback()
-			w.WriteHeader(http.StatusInternalServerError)
+			c.Writer.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		_ = txn.Commit()
 	default:
-		w.WriteHeader(http.StatusForbidden)
+		c.Writer.WriteHeader(http.StatusForbidden)
 		return
 	}
 	if data, err = json.Marshal(fileMeta); err != nil {
 		log.Println("Marshal File fail: ", err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
+		c.Writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(data)
+	c.Writer.Header().Set("Content-Type", "application/json")
+	c.Writer.WriteHeader(http.StatusOK)
+	_, _ = c.Writer.Write(data)
 }
 
 //delete file and file meta info
-func Delete(w http.ResponseWriter, r *http.Request) {
+func Delete(c *gin.Context) {
 	var (
 		fileMeta *model.File
 		flag     bool
 		err      error
 	)
-	_ = r.ParseForm()
-	filehash := r.PostFormValue("filehash")
+	_ = c.Request.ParseForm()
+	filehash := c.Request.PostFormValue("filehash")
 	//hard delete
 	fileMeta = model.NewFile()
 	if err = fileMeta.Get(filehash); err != nil {
 		log.Println("get file meta err: ", err.Error())
-		w.WriteHeader(http.StatusNotFound)
+		c.Writer.WriteHeader(http.StatusNotFound)
 		return
 	}
 	_ = os.Remove(fileMeta.Location)
@@ -265,10 +267,10 @@ func Delete(w http.ResponseWriter, r *http.Request) {
 	txn, _ := conn.GetDb().Begin()
 	if flag = fileMeta.Delete(txn, filehash); !flag {
 		_ = txn.Rollback()
-		w.WriteHeader(http.StatusInternalServerError)
+		c.Writer.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	_ = txn.Commit()
-	w.WriteHeader(http.StatusOK)
+	c.Writer.WriteHeader(http.StatusOK)
 	return
 }
