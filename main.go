@@ -7,12 +7,9 @@ import (
 )
 
 func main() {
-	//gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Logger())
 	// static file
-	//r.StaticFile("/signin.html", common.StaticFileDir+"/view/signin.html")
-	//r.StaticFile("/home.html", common.StaticFileDir+"/view/home.html")
 	r.Static("/static", common.StaticFileDir)
 
 	r.Any("/file/upload/success", handler.UploadSuccess)

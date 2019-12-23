@@ -1,15 +1,14 @@
 package conn
 
 import (
+	. "distributedCloudStorage/common"
 	"github.com/garyburd/redigo/redis"
 	"log"
 	"time"
 )
 
 var (
-	pool      *redis.Pool
-	redisHost = "127.0.0.1:6379"
-	redisPwd  = "123456"
+	pool *redis.Pool
 )
 
 func newRedisPool() *redis.Pool {
@@ -18,19 +17,19 @@ func newRedisPool() *redis.Pool {
 		MaxActive:   30,
 		IdleTimeout: 300 * time.Second,
 		Dial: func() (conn redis.Conn, err error) {
-			if conn, err = redis.Dial("tcp", redisHost); err != nil {
+			if conn, err = redis.Dial("tcp", CacheHost); err != nil {
 				log.Println(err.Error())
 				return
 			}
-			if _, err = conn.Do("AUTH", redisPwd); err != nil {
-				log.Println(err)
-				return nil, err
+			if _, err = conn.Do("AUTH", CachePwd); err != nil {
+				log.Println(err.Error())
+				return
 			}
 			return
 		},
 		TestOnBorrow: func(c redis.Conn, t time.Time) (err error) {
 			if time.Since(t) < time.Minute {
-				return nil
+				return
 			}
 			_, err = c.Do("PING")
 			return
