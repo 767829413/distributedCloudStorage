@@ -56,8 +56,8 @@ func Upload(c *gin.Context) {
 		fileMeta.FileSha1 = util.FileSha1(osFile)
 		txn, _ := conn.GetDb().Begin()
 		flag := fileMeta.Save(txn)
-		flag = fileMeta.SaveUserFile(txn, name)
-		if !flag {
+		flagUser := fileMeta.SaveUserFile(txn, name)
+		if !flag || !flagUser {
 			_ = txn.Rollback()
 		}
 		_ = txn.Commit()

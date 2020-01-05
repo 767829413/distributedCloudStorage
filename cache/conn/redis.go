@@ -17,7 +17,7 @@ func newRedisPool() *redis.Pool {
 		MaxActive:   30,
 		IdleTimeout: 300 * time.Second,
 		Dial: func() (conn redis.Conn, err error) {
-			if conn, err = redis.Dial("tcp", CacheHost); err != nil {
+			if conn, err = redis.Dial("tcp", CacheHost+":"+CachePort); err != nil {
 				log.Println(err.Error())
 				return
 			}
