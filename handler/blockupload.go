@@ -180,7 +180,7 @@ func CompleteUpload(c *gin.Context) {
 		return
 	}
 
-	//TODO merge block upload file
+	//merge block upload file
 	mergeFile(upid, common.FileStoreTmp+filename)
 	fileMeta := model.NewFile()
 	fileMeta.FileSize = int64(filesize)
@@ -205,6 +205,18 @@ func CompleteUpload(c *gin.Context) {
 		"message": "OK",
 		"data":    "",
 	})
+}
+
+func CancelUpload(c *gin.Context) {
+	//TODO 删除已存在分块文件
+	//TODO 删除redis缓存
+	//TODO 更改数据库文件状态
+}
+
+func StateBlockUpload(c *gin.Context) {
+	//TODO 检查分块上传是否有效
+	//TODO 从redis获取分块初始化信息
+	//TODO 获取已上传分块信息
 }
 
 func mergeFile(uploadId string, fileName string) (err error) {

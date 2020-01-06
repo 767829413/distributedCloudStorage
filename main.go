@@ -31,8 +31,8 @@ func main() {
 		token.POST("/file/mpupload/init", handler.InitBlockUpload)
 		token.POST("/file/mpupload/uppart", handler.BlockUpload)
 		token.POST("/file/mpupload/complete", handler.CompleteUpload)
-		token.OPTIONS("/file/mpupload/cancel", handler.InitBlockUpload)
-		token.OPTIONS("/file/mpupload/status", handler.InitBlockUpload)
+		token.OPTIONS("/file/mpupload/cancel", handler.CancelUpload)
+		token.OPTIONS("/file/mpupload/status", handler.StateBlockUpload)
 		//user relation
 		token.POST("/user/info", handler.Info)
 	}
