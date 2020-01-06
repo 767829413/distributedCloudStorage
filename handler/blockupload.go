@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"github.com/garyburd/redigo/redis"
 	"github.com/gin-gonic/gin"
+	"io/ioutil"
 	"log"
 	"math"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -44,6 +46,7 @@ func InitBlockUpload(c *gin.Context) {
 			"message": "params filesize invalid",
 			"data":    "",
 		})
+		return
 	}
 	rConn := cacheConn.GetPool().Get()
 	defer rConn.Close()
@@ -96,6 +99,7 @@ func BlockUpload(c *gin.Context) {
 			"message": "Internal system error",
 			"data":    "",
 		})
+		return
 	}
 	defer file.Close()
 	buf := make([]byte, 1024*1024)
@@ -113,6 +117,7 @@ func BlockUpload(c *gin.Context) {
 			"message": "Internal system error",
 			"data":    "",
 		})
+		return
 	}
 	c.JSON(200, gin.H{
 		"code":    0,
@@ -141,6 +146,7 @@ func CompleteUpload(c *gin.Context) {
 			"message": "params filesize invalid",
 			"data":    "",
 		})
+		return
 	}
 	filename = c.Request.Form.Get("filename")
 	rConn := cacheConn.GetPool().Get()
@@ -152,6 +158,7 @@ func CompleteUpload(c *gin.Context) {
 			"message": "Internal system error",
 			"data":    "",
 		})
+		return
 	}
 	totalCount := 0
 	chunkCount := 0
@@ -170,10 +177,11 @@ func CompleteUpload(c *gin.Context) {
 			"message": "Invalid request",
 			"data":    "",
 		})
+		return
 	}
 
 	//TODO merge block upload file
-
+	mergeFile(upid, common.FileStoreTmp+filename)
 	fileMeta := model.NewFile()
 	fileMeta.FileSize = int64(filesize)
 	fileMeta.FileSha1 = filehash
@@ -184,10 +192,37 @@ func CompleteUpload(c *gin.Context) {
 	flagUser := fileMeta.SaveUserFile(txn, username)
 	if !flag || !flagUser {
 		_ = txn.Rollback()
+		c.JSON(400, gin.H{
+			"code":    -1,
+			"message": "Repeat upload file",
+			"data":    "",
+		})
+		return
 	}
+	_ = txn.Commit()
 	c.JSON(200, gin.H{
 		"code":    0,
 		"message": "OK",
 		"data":    "",
 	})
+}
+
+func mergeFile(uploadId string, fileName string) (err error) {
+	if fileHd, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm); err != nil {
+		return err
+	} else {
+		fileDir := common.FileStoreTmp + uploadId + "/"
+		filepath.Walk(fileDir, func(path string, info os.FileInfo, err error) error {
+			if !info.IsDir() {
+				fileData, err := ioutil.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				fileHd.Write(fileData)
+			}
+			return err
+		})
+		defer fileHd.Close()
+	}
+	return
 }

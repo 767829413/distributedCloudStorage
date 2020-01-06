@@ -58,7 +58,13 @@ func Exec(txn *sql.Tx, query string, args ...interface{}) bool {
 		return false
 	} else {
 		if num <= 0 {
-			log.Println(query, " ", err.Error())
+			errStr := ""
+			if err != nil {
+				errStr = err.Error()
+			} else {
+				errStr = ""
+			}
+			log.Println(query, " ", errStr)
 			return false
 		}
 		return true

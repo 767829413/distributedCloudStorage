@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"sync"
 	"testing"
 )
 
@@ -25,15 +26,16 @@ func multipartUpload(filename string, targetURL string, chunkSize int) error {
 	bfRd := bufio.NewReader(f)
 	index := 0
 
-	ch := make(chan int)
 	buf := make([]byte, chunkSize) //每次读取chunkSize大小的内容
+	wg := sync.WaitGroup{}
 	for {
 		n, err := bfRd.Read(buf)
+		fmt.Println("ttttt : ", n)
 		if n <= 0 {
 			break
 		}
 		index++
-
+		wg.Add(1)
 		bufCopied := make([]byte, 5*1048576)
 		copy(bufCopied, buf)
 
@@ -49,10 +51,9 @@ func multipartUpload(filename string, targetURL string, chunkSize int) error {
 			}
 
 			body, er := ioutil.ReadAll(resp.Body)
-			fmt.Printf("%+v %+v\n", string(body), er)
-			resp.Body.Close()
-
-			ch <- curIdx
+			fmt.Printf("body : %+v error : %+v\n", string(body), er)
+			defer resp.Body.Close()
+			defer wg.Done()
 		}(bufCopied[:n], index)
 
 		//遇到任何错误立即返回，并忽略 EOF 错误信息
@@ -64,21 +65,14 @@ func multipartUpload(filename string, targetURL string, chunkSize int) error {
 			}
 		}
 	}
-
-	for idx := 0; idx < index; idx++ {
-		select {
-		case res := <-ch:
-			fmt.Println(res)
-		}
-	}
-
+	wg.Wait()
 	return nil
 }
 
 func TestBlockUpload(t *testing.T) {
 	username := "admin"
-	token := "54eefa7dbd5bcf852c52fecd816f2a315c61832c"
-	filehash := "dfa39cac093a7a9c94d25130671ec474d51a2995"
+	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjcmVhdGVfYXQiOjE1NzgyODgzMDcsInVzZXJfbmFtZSI6ImFkbWluIn0.lcZp5GnM2twFU4Wpv1fdg6NnrtXbzH2l19quFfpaS34"
+	filehash := "1ba51899128dd9aa87a0e28d9a2d4a3b7595333a"
 
 	// 1. 请求初始化分块上传接口
 	resp, err := http.PostForm(
@@ -87,7 +81,7 @@ func TestBlockUpload(t *testing.T) {
 			"username": {username},
 			"token":    {token},
 			"filehash": {filehash},
-			"filesize": {"132489256"},
+			"filesize": {"42623945"},
 		})
 	if err != nil {
 		t.Error(err.Error())
@@ -95,18 +89,17 @@ func TestBlockUpload(t *testing.T) {
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
 	}
-	uploadID := jsonit.Get(body, "data").Get("UploadID").ToString()
+	uploadID := jsonit.Get(body, "data").Get("UploadId").ToString()
 	chunkSize := jsonit.Get(body, "data").Get("ChunkSize").ToInt()
 	t.Logf("uploadid: %s  chunksize: %d\n", uploadID, chunkSize)
 
 	// 3. 请求分块上传接口
-	filename := "/data/pkg/go1.10.3.linux-amd64.tar.gz"
+	filename := "C:/Users/NUC/Desktop/Camera_Roll.rar"
 	tURL := "http://localhost:8080/file/mpupload/uppart?" +
 		"username=admin&token=" + token + "&uploadid=" + uploadID
 	multipartUpload(filename, tURL, chunkSize)
-
 	// 4. 请求分块完成接口
 	resp, err = http.PostForm(
 		"http://localhost:8080/file/mpupload/complete",
@@ -114,19 +107,21 @@ func TestBlockUpload(t *testing.T) {
 			"username": {username},
 			"token":    {token},
 			"filehash": {filehash},
-			"filesize": {"132489256"},
-			"filename": {"go1.10.3.linux-amd64.tar.gz"},
+			"filesize": {"42623945"},
+			"filename": {"Camera_Roll.rar"},
 			"uploadid": {uploadID},
 		})
 
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
 	}
 
 	defer resp.Body.Close()
 	body, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatal(err.Error())
 	}
 	t.Logf("complete result: %s\n", string(body))
 }
+
+

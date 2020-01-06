@@ -16,9 +16,6 @@ func main() {
 	r.Any("/user/signup", handler.Signup)
 	r.Any("/user/signin", handler.SignIn)
 
-	r.POST("/file/mpupload/init", handler.InitBlockUpload)
-	r.POST("/file/mpupload/uppart", handler.BlockUpload)
-	r.POST("/file/mpupload/complete", handler.CompleteUpload)
 	token := r.Group("/")
 	token.Use(handler.Token)
 	{
@@ -31,9 +28,9 @@ func main() {
 		token.POST("/file/delete", handler.Delete)
 		token.POST("/file/fastupload", handler.FastUpload)
 
-		//token.POST("/file/mpupload/init", handler.InitBlockUpload)
-		//token.OPTIONS("/file/mpupload/uppart", handler.BlockUpload)
-		//token.OPTIONS("/file/mpupload/complete", handler.CompleteUpload)
+		token.POST("/file/mpupload/init", handler.InitBlockUpload)
+		token.POST("/file/mpupload/uppart", handler.BlockUpload)
+		token.POST("/file/mpupload/complete", handler.CompleteUpload)
 		token.OPTIONS("/file/mpupload/cancel", handler.InitBlockUpload)
 		token.OPTIONS("/file/mpupload/status", handler.InitBlockUpload)
 		//user relation
