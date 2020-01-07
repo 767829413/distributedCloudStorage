@@ -181,7 +181,15 @@ func CompleteUpload(c *gin.Context) {
 	}
 
 	//merge block upload file
-	mergeFile(upid, common.FileStoreTmp+filename)
+	if err = MergeFile(upid, common.FileStoreTmp+filename); err != nil {
+		log.Println("merge file error : ", err.Error())
+		c.JSON(500, gin.H{
+			"code":    -1,
+			"message": "Internal system error",
+			"data":    "",
+		})
+		return
+	}
 	fileMeta := model.NewFile()
 	fileMeta.FileSize = int64(filesize)
 	fileMeta.FileSha1 = filehash
@@ -219,22 +227,23 @@ func StateBlockUpload(c *gin.Context) {
 	//TODO 获取已上传分块信息
 }
 
-func mergeFile(uploadId string, fileName string) (err error) {
+func MergeFile(uploadId string, fileName string) (err error) {
 	if fileHd, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, os.ModePerm); err != nil {
 		return err
 	} else {
 		fileDir := common.FileStoreTmp + uploadId + "/"
-		filepath.Walk(fileDir, func(path string, info os.FileInfo, err error) error {
+		_ = filepath.Walk(fileDir, func(path string, info os.FileInfo, err error) error {
 			if !info.IsDir() {
 				fileData, err := ioutil.ReadFile(path)
 				if err != nil {
 					return err
 				}
-				fileHd.Write(fileData)
+				_, err = fileHd.Write(fileData)
 			}
 			return err
 		})
 		defer fileHd.Close()
+		defer os.RemoveAll(fileDir)
 	}
 	return
 }

@@ -123,5 +123,3 @@ func TestBlockUpload(t *testing.T) {
 	}
 	t.Logf("complete result: %s\n", string(body))
 }
-
-
